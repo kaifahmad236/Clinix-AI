@@ -16,5 +16,9 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.1-8b-instant"
 
+    # Comma-separated list of allowed CORS origins (e.g. your production
+    # frontend domain). Falls back to localhost dev origins if unset.
+    FRONTEND_ORIGINS: str = ""
+
 
 settings = Settings()

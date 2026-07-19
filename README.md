@@ -101,5 +101,17 @@ Frontend runs at `http://localhost:5173` and talks to the backend at `http://loc
 - PDF summarizer needs a text-based PDF (scanned/image-only PDFs aren't OCR'd in this MVP).
 - Chat memory is per-session (grouped by `session_id`), last 10 turns are sent to the LLM to keep context lean.
 - No refresh-token flow — JWT expiry is 24h by default (`ACCESS_TOKEN_EXPIRE_MINUTES` in `.env`).
-- CORS is currently locked to `localhost:5173`; update `app/main.py` if you deploy the frontend elsewhere.
+- CORS is locked to `localhost:5173` by default. To allow your deployed frontend, set `FRONTEND_ORIGINS` in `.env` to a comma-separated list of origins (e.g. `https://clinixai.com`). See `backend/app/main.py`.
 - Both Gemini and Groq have generous free tiers, but rate limits still apply — if one gets throttled, just flip `LLM_PROVIDER` in `.env`.
+
+## Deployment
+
+### Backend
+- Set the required env vars on your host (see `backend/.env.example`): `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `DATABASE_URL`, `LLM_PROVIDER`, the matching API key, and `FRONTEND_ORIGINS` (comma-separated production frontend domain(s)).
+- The app starts with Uvicorn and honors the `$PORT` env var. Use the provided `Procfile` (e.g. on Render) or run `bash start.sh` directly. Both bind to `0.0.0.0` and use `$PORT` (default `8000`).
+- `requirements.txt` lists all dependencies needed to run the backend.
+
+### Frontend
+- Build the production bundle with `npm install && npm run build` (outputs to `frontend/dist`).
+- The API base URL is read from `VITE_API_URL` at build time. Set it to your deployed backend URL (e.g. `https://api.clinixai.com`) before building; it falls back to `http://localhost:8000` for local dev.
+- Serve the static `dist/` folder with any static host (Netlify, Vercel, Nginx, etc.).
