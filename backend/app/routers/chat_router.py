@@ -41,6 +41,7 @@ def send_message(
     result = run_orchestrator(
         message=payload.message,
         history=history,
+        user_id=current_user.id,
         latest_report_summary=latest_summary,
     )
 
@@ -62,7 +63,12 @@ def send_message(
     db.add_all([user_msg, ai_msg])
     db.commit()
 
-    return ChatResponse(session_id=session_id, reply=result["reply"], agent_used=result["agent_used"])
+    return ChatResponse(
+        session_id=session_id,
+        reply=result["reply"],
+        agent_used=result["agent_used"],
+        citations=result.get("citations", []),
+    )
 
 
 @router.get("/history/{session_id}", response_model=list[ChatMessageOut])

@@ -9,22 +9,23 @@ A minimal, working full-stack MVP:
 
 ## Architecture
 
-**3 Agents:**
-1. **Chat Agent** (`backend/app/agents/chat_agent.py`) — answers health questions, aware of prior turns and (optionally) the user's latest report summary.
+**Agents & RAG Pipeline:**
+1. **Chat Agent** (`backend/app/agents/chat_agent.py`) — answers health questions, strictly grounded in retrieved medical report excerpts with source citations to prevent hallucinations.
 2. **Report Summarizer Agent** (`backend/app/agents/report_agent.py`) — turns raw PDF text into a structured summary (Key Findings / Concerns / Recommendations / Disclaimer).
-3. **Orchestrator Agent** (`backend/app/agents/orchestrator.py`) — a small **LangGraph** graph that routes each chat message: if it looks like the user is asking about their uploaded report, it hands the Chat Agent that report's summary as context; otherwise it's a plain health chat. This is the router the spec's "3 agents" implied but didn't name — swap/extend its routing logic in one file if you want smarter behavior later.
+3. **Orchestrator Agent** (`backend/app/agents/orchestrator.py`) — a **LangGraph** workflow that intelligently routes queries: performs semantic search against the user's private vectorized medical documents, supplying relevant page-level excerpts to the Chat Agent with source attribution.
+4. **RAG Vector Store** (`backend/app/rag/vector_store.py`) — powered by **ChromaDB** with user-level tenant isolation. Chunks reports page-by-page, generates embeddings, and retrieves relevant document excerpts.
 
-**Swappable LLM:** `backend/app/llm_config.py` has one `get_llm()` function used by both agents. To switch providers, edit `.env`:
+**Swappable LLM & Embeddings:** `backend/app/llm_config.py` provides `get_llm()` and `get_embeddings()`. To switch providers, edit `.env`:
 ```
 LLM_PROVIDER=gemini   # or: groq
 GEMINI_API_KEY=...
 GROQ_API_KEY=...
 ```
-No code changes needed — both free-tier providers (Google AI Studio, Groq) are wired up already.
 
 ## Tech Stack
 - Backend: Python + FastAPI
-- AI: LangChain + LangGraph
+- AI / Orchestration: LangChain + LangGraph
+- Vector Store / RAG: ChromaDB (`chromadb` + `langchain-chroma`)
 - Frontend: React + Vite + Tailwind CSS
 - DB: SQLite (via SQLAlchemy)
 - Auth: JWT (python-jose) + bcrypt password hashing
@@ -45,6 +46,8 @@ clinixai/
         chat_agent.py
         report_agent.py
         orchestrator.py       LangGraph router (3rd agent)
+      rag/
+        vector_store.py       ChromaDB indexing, chunking & semantic search
       routers/
         auth_router.py
         chat_router.py

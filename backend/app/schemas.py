@@ -39,10 +39,18 @@ class ChatMessageOut(BaseModel):
     created_at: datetime
 
 
+class Citation(BaseModel):
+    filename: str
+    page: Optional[int] = 1
+    citation: str
+    score: Optional[float] = None
+
+
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
     agent_used: str
+    citations: list[Citation] = []
 
 
 # ---------- Reports ----------

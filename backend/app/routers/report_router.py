@@ -1,14 +1,18 @@
+import io
+import logging
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
 from pypdf import PdfReader
-import io
 
 from app.database import get_db
 from app.models import Report, User
 from app.schemas import ReportOut, ReportDetailOut
 from app.auth import get_current_user
 from app.agents.report_agent import run_report_agent
+from app.rag.vector_store import index_report, delete_report_vectors
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/reports", tags=["reports"])
 
@@ -30,10 +34,16 @@ async def upload_report(
 
     try:
         reader = PdfReader(io.BytesIO(raw))
-        text_parts = [page.extract_text() or "" for page in reader.pages]
-        extracted_text = "\n".join(text_parts).strip()
+        pages_text = [
+            (i + 1, page.extract_text() or "")
+            for i, page in enumerate(reader.pages)
+        ]
+        extracted_text = "\n".join(t for _, t in pages_text).strip()
     except Exception:
-        raise HTTPException(status_code=400, detail="Could not read this PDF. It may be corrupted or scanned/image-only.")
+        raise HTTPException(
+            status_code=400,
+            detail="Could not read this PDF. It may be corrupted or scanned/image-only.",
+        )
 
     if not extracted_text:
         raise HTTPException(
@@ -52,6 +62,17 @@ async def upload_report(
     db.add(report)
     db.commit()
     db.refresh(report)
+
+    # Index into RAG vector store for semantic question answering
+    try:
+        index_report(
+            user_id=current_user.id,
+            report_id=report.id,
+            filename=file.filename,
+            pages_text=pages_text,
+        )
+    except Exception as e:
+        logger.error(f"Failed to index report into vector store: {e}")
 
     return report
 
@@ -83,3 +104,53 @@ def get_report(
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
+
+
+@router.delete("/{report_id}")
+def delete_report(
+    report_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    report = (
+        db.query(Report)
+        .filter(Report.id == report_id, Report.user_id == current_user.id)
+        .first()
+    )
+    if not report:
+        raise HTTPException(status_code=404, detail="Report not found")
+
+    # Remove vector embeddings
+    delete_report_vectors(user_id=current_user.id, report_id=report_id)
+
+    db.delete(report)
+    db.commit()
+    return {"message": "Report deleted successfully"}
+
+
+@router.post("/reindex")
+def reindex_all_reports(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Backfills/syncs all existing reports for the current user into the RAG vector store.
+    """
+    reports = (
+        db.query(Report)
+        .filter(Report.user_id == current_user.id)
+        .all()
+    )
+    indexed_count = 0
+    for r in reports:
+        if r.extracted_text:
+            pages_text = [(1, r.extracted_text)]
+            chunks = index_report(
+                user_id=current_user.id,
+                report_id=r.id,
+                filename=r.filename,
+                pages_text=pages_text,
+            )
+            indexed_count += chunks
+
+    return {"message": f"Successfully reindexed {len(reports)} reports ({indexed_count} total chunks)."}

@@ -43,3 +43,25 @@ def get_llm():
         raise ValueError(
             f"Unknown LLM_PROVIDER '{provider}'. Use 'gemini' or 'groq'."
         )
+
+
+@lru_cache(maxsize=1)
+def get_embeddings():
+    """
+    Returns an embedding instance compatible with LangChain / Chroma.
+    Uses GoogleGenerativeAIEmbeddings if Gemini is configured.
+    Returns None if using Chroma's built-in local ONNX MiniLM fallback.
+    """
+    provider = settings.LLM_PROVIDER.lower().strip()
+
+    if provider == "gemini" and settings.GEMINI_API_KEY:
+        from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+        return GoogleGenerativeAIEmbeddings(
+            model=settings.EMBEDDING_MODEL,
+            google_api_key=settings.GEMINI_API_KEY,
+        )
+
+    # Fallback to Chroma's built-in local embedding function (ONNX MiniLM)
+    return None
+

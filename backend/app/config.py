@@ -16,6 +16,11 @@ class Settings(BaseSettings):
     GROQ_API_KEY: str = ""
     GROQ_MODEL: str = "llama-3.1-8b-instant"
 
+    # Vector DB / RAG settings
+    CHROMA_PERSIST_DIR: str = "./chroma_db"
+    EMBEDDING_MODEL: str = "models/text-embedding-004"
+    RAG_TOP_K: int = 4
+
     # Comma-separated list of allowed CORS origins (e.g. your production
     # frontend domain). Falls back to localhost dev origins if unset.
     FRONTEND_ORIGINS: str = ""

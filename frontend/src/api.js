@@ -54,6 +54,8 @@ export const uploadReport = (file) => {
 
 export const listReports = () => api.get('/api/reports/')
 export const getReport = (id) => api.get(`/api/reports/${id}`)
+export const deleteReport = (id) => api.delete(`/api/reports/${id}`)
+export const reindexReports = () => api.post('/api/reports/reindex')
 
 // ---- Dashboard ----
 export const listSessions = () => api.get('/api/dashboard/sessions')

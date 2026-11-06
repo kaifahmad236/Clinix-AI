@@ -34,3 +34,8 @@ npm-debug.log*
 
 # Uploads (if any)
 uploads/
+
+# Chroma Vector Store
+chroma_db/
+backend/chroma_db/
+
